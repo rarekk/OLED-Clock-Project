@@ -1,7 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include "clock_ui.h"
 
-// บิตแมปการ์ตูน
+// ================= Bitmaps การ์ตูน ขนาด 32x32 Pixels =================
 static const uint8_t mascot_frame0[128] = {
     0x00,0x0f,0x00,0x00, 0x00,0x18,0x00,0x00, 0x00,0x10,0x3f,0x00, 0x00,0x10,0x20,0x80,
     0x00,0x10,0x20,0x40, 0x00,0x08,0x20,0x40, 0x00,0x0f,0xe0,0x80, 0x00,0x30,0x1f,0x00,
@@ -24,6 +25,7 @@ static const uint8_t mascot_frame1[128] = {
     0x00,0x60,0x06,0x00, 0x00,0x30,0x0c,0x00, 0x00,0x1f,0xf8,0x00, 0x00,0x00,0x00,0x00
 };
 
+// ================= ฟังก์ชันวาด Bitmap บน SSD1306 =================
 static void draw_bitmap_32x32(ssd1306_t *dev, int x_offset, int y_offset, const uint8_t *bitmap) {
     for (int y = 0; y < 32; y++) {
         for (int x = 0; x < 32; x++) {
@@ -36,16 +38,19 @@ static void draw_bitmap_32x32(ssd1306_t *dev, int x_offset, int y_offset, const 
     }
 }
 
-void clock_ui_init_orientation(void) {}
+void clock_ui_init_orientation(void) {
+    // สงวนไว้สำหรับการตั้งค่าหน้าจอแนวนอน/แนวตั้งถ้าจำเป็น
+}
 
+// ================= ฟังก์ชัน Render UI หลักแยกตามโหมด =================
 void clock_ui_render_mode(ssd1306_t *dev, ui_mode_t mode, int hours, int minutes, int seconds, 
                          int day, int month, int year, const char *status, int frame, 
                          uint32_t sw_ms, int selected_mascot) {
     ssd1306_clear(dev);
 
     if (mode == UI_MODE_CLOCK) {
-        // --- 1. โหมด นาฬิกาหลัก ---
-        char date_str[16], time_str[16];
+        // --- โหมด 1: หน้าจอนาฬิกาหลัก + Mascot ---
+        char date_str[32], time_str[32];
         snprintf(date_str, sizeof(date_str), "%02d/%02d/%04d", day, month, year);
         snprintf(time_str, sizeof(time_str), "%02d:%02d:%02d", hours, minutes, seconds);
 
@@ -58,27 +63,27 @@ void clock_ui_render_mode(ssd1306_t *dev, ui_mode_t mode, int hours, int minutes
         draw_bitmap_32x32(dev, 94, 16, current_mascot);
 
     } else if (mode == UI_MODE_STOPWATCH) {
-        // --- 2. โหมด นาฬิกาจับเวลา ---
+        // --- โหมด 2: นาฬิกาจับเวลา ---
         uint32_t total_sec = sw_ms / 1000;
         uint32_t m = total_sec / 60;
         uint32_t s = total_sec % 60;
         uint32_t ms = (sw_ms % 1000) / 10;
 
-        char sw_str[16];
+        char sw_str[32];
         snprintf(sw_str, sizeof(sw_str), "%02lu:%02lu.%02lu", m, s, ms);
 
-        ssd1306_draw_string(dev, 20, 8, "-- STOPWATCH --", false);
+        ssd1306_draw_string(dev, 8, 8, "-- STOPWATCH --", false);
         ssd1306_draw_string(dev, 24, 30, sw_str, false);
-        ssd1306_draw_string(dev, 8, 50, "[OK]:Start/Stop", false);
+        ssd1306_draw_string(dev, 4, 50, "[OK]:Start/Stop", false);
 
     } else if (mode == UI_MODE_MASCOT_SELECT) {
-        // --- 3. โหมด เลือกตัวการ์ตูน ---
-        char m_str[16];
+        // --- โหมด 3: หน้าจอเลือกตัวการ์ตูน ---
+        char m_str[32];
         snprintf(m_str, sizeof(m_str), "Mascot #%d", selected_mascot + 1);
 
-        ssd1306_draw_string(dev, 8, 8, "-- SELECT CHAR --", false);
-        ssd1306_draw_string(dev, 8, 28, m_str, false);
-        ssd1306_draw_string(dev, 8, 48, "[UP/DN]: Change", false);
+        ssd1306_draw_string(dev, 4, 8, "-- SELECT CHAR --", false);
+        ssd1306_draw_string(dev, 4, 28, m_str, false);
+        ssd1306_draw_string(dev, 4, 48, "[UP/DN]: Change", false);
 
         const uint8_t *preview = (frame % 2 == 0) ? mascot_frame0 : mascot_frame1;
         draw_bitmap_32x32(dev, 94, 16, preview);

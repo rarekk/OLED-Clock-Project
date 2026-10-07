@@ -1,5 +1,5 @@
 idf_component_register(
     SRCS "main.c"
     INCLUDE_DIRS "."
-    REQUIRES esp_wifi esp_event nvs_flash esp_netif ssd1306 clock_ui
-)   
+    PRIV_REQUIRES clock_ui ssd1306 esp_timer esp_driver_gpio esp_wifi nvs_flash esp_netif
+)
