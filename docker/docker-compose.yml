@@ -1,0 +1,23 @@
+# docker compose -f docker/docker-compose.yml run --rm idf idf.py build
+#
+# Builds and runs the ESP-IDF toolchain in a container with the project
+# mounted at /project. Run all commands from anywhere via the Makefile.
+services:
+  idf:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        IDF_VERSION: ${IDF_VERSION:-release-v5.3}
+    image: oled-clock-idf:${IDF_VERSION:-release-v5.3}
+    working_dir: /project
+    volumes:
+      - ..:/project
+      - idf-ccache:/root/.ccache
+    environment:
+      IDF_CCACHE_ENABLE: "1"
+    stdin_open: true
+    tty: true
+
+volumes:
+  idf-ccache:

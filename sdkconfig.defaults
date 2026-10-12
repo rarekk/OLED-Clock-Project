@@ -1,0 +1,23 @@
+# Project-wide defaults applied when sdkconfig does not exist yet.
+# Copy/override via `idf.py menuconfig` (the generated sdkconfig is git-ignored).
+CONFIG_IDF_TARGET="esp32"
+
+# A bit more headroom for the UI rendering + Wi-Fi/SNTP stacks.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# Keep NTP available (default on, stated explicitly for clarity).
+CONFIG_LWIP_SNTP=y
+
+# Informative logs by default.
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+
+# --- Application defaults (see main/Kconfig.projbuild) ---
+# Wi-Fi credentials intentionally left blank: set them with `idf.py menuconfig`
+# so they are never committed to the repository.
+CONFIG_OLED_CLOCK_WIFI_SSID="Ginger"
+CONFIG_OLED_CLOCK_WIFI_PASSWORD="rarekk160949"
+CONFIG_OLED_CLOCK_TIMEZONE="ICT-7"
+CONFIG_OLED_CLOCK_SNTP_SERVER="pool.ntp.org"
+
+# --- Panel: uncomment for a 1.3" SH1106 module ---
+# CONFIG_SSD1306_PANEL_SH1106=y

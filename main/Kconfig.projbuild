@@ -1,0 +1,119 @@
+menu "OLED Clock configuration"
+
+    menu "Wi-Fi credentials"
+        config OLED_CLOCK_WIFI_SSID
+            string "Wi-Fi SSID"
+            default ""
+            help
+                SSID of the 2.4 GHz network the clock should join.
+                Leave empty to run fully offline (time will not be synced).
+
+        config OLED_CLOCK_WIFI_PASSWORD
+            string "Wi-Fi password"
+            default ""
+            help
+                WPA2 password. This value is stored in the generated sdkconfig,
+                which is git-ignored, so credentials never end up in the repo.
+
+        config OLED_CLOCK_WIFI_MAX_RETRY
+            int "Maximum reconnect attempts before giving up (0 = forever)"
+            range 0 1000
+            default 0
+    endmenu
+
+    menu "Time (SNTP)"
+        config OLED_CLOCK_SNTP_SERVER
+            string "SNTP server"
+            default "pool.ntp.org"
+
+        config OLED_CLOCK_TIMEZONE
+            string "POSIX timezone string"
+            default "ICT-7"
+            help
+                POSIX TZ string applied with setenv()/tzset().
+                Examples: "ICT-7" (UTC+7), "UTC0", "CET-1CEST,M3.5.0,M10.5.0/3".
+    endmenu
+
+    menu "I2C / OLED"
+        config OLED_CLOCK_I2C_SDA
+            int "I2C SDA GPIO"
+            range 0 39
+            default 21
+
+        config OLED_CLOCK_I2C_SCL
+            int "I2C SCL GPIO"
+            range 0 39
+            default 22
+
+        config OLED_CLOCK_I2C_SPEED
+            int "I2C clock frequency (Hz)"
+            default 400000
+
+        config OLED_CLOCK_OLED_ADDR
+            hex "OLED I2C address"
+            default 0x3C
+    endmenu
+
+    menu "Buttons (active low, to GND)"
+        config OLED_CLOCK_BTN_MODE
+            int "MODE button GPIO"
+            range 0 39
+            default 13
+
+        config OLED_CLOCK_BTN_UP
+            int "UP button GPIO"
+            range 0 39
+            default 12
+
+        config OLED_CLOCK_BTN_DOWN
+            int "DOWN button GPIO"
+            range 0 39
+            default 14
+
+        config OLED_CLOCK_BTN_SELECT
+            int "SELECT button GPIO"
+            range 0 39
+            default 27
+
+        config OLED_CLOCK_BTN_DEBOUNCE_MS
+            int "Button debounce time (ms)"
+            range 10 500
+            default 50
+    endmenu
+
+    config OLED_CLOCK_BRIGHTNESS
+        int "Default brightness (0-255)"
+        range 16 255
+        default 207
+
+    menu "Event notifications (optional)"
+        config OLED_CLOCK_TELEGRAM_ENABLE
+            bool "Send reminders to Telegram"
+            default n
+            help
+                Posts due-event reminders to a Telegram chat via the Bot API.
+
+        config OLED_CLOCK_TELEGRAM_BOT_TOKEN
+            string "Telegram bot token"
+            depends on OLED_CLOCK_TELEGRAM_ENABLE
+            default ""
+
+        config OLED_CLOCK_TELEGRAM_CHAT_ID
+            string "Telegram chat id"
+            depends on OLED_CLOCK_TELEGRAM_ENABLE
+            default ""
+
+        config OLED_CLOCK_LINE_ENABLE
+            bool "Send reminders to LINE Notify"
+            default n
+            help
+                Posts due-event reminders to LINE Notify. Note: the LINE Notify
+                service is being discontinued by LINE; Telegram is recommended.
+
+        config OLED_CLOCK_LINE_TOKEN
+            string "LINE Notify token"
+            depends on OLED_CLOCK_LINE_ENABLE
+            default ""
+    endmenu
+
+endmenu

@@ -1,0 +1,15 @@
+# Overlay for flashing/monitoring from Linux or macOS Docker hosts.
+#
+#   SERIAL_PORT=/dev/ttyUSB0 \
+#     docker compose -f docker/docker-compose.yml -f docker/docker-compose.flash.yml \
+#     run --rm idf idf.py -p /dev/ttyUSB0 flash monitor
+#
+# Note: Docker Desktop on Windows/macOS cannot pass a COM port through to a
+# container. On Windows, attach the board to WSL2 with usbipd-win first, or
+# flash from a native ESP-IDF install. See README.md.
+services:
+  idf:
+    devices:
+      - "${SERIAL_PORT:-/dev/ttyUSB0}:${SERIAL_PORT:-/dev/ttyUSB0}"
+    group_add:
+      - dialout
