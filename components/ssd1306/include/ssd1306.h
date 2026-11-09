@@ -67,6 +67,8 @@ void ssd1306_draw_rect(ssd1306_t *dev, int x, int y, int w, int h, bool color);
 void ssd1306_fill_rect(ssd1306_t *dev, int x, int y, int w, int h, bool color);
 void ssd1306_draw_circle(ssd1306_t *dev, int x0, int y0, int r, bool color);
 void ssd1306_fill_circle(ssd1306_t *dev, int x0, int y0, int r, bool color);
+void ssd1306_draw_bitmap(ssd1306_t *dev, int x, int y, int w, int h,
+                         const uint8_t *bitmap, bool color);
 
 /* ---- Text (built-in 8x8 font, ASCII 0x20-0x5A: space..'Z') ------------ */
 

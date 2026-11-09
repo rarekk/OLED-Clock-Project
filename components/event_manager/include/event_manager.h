@@ -30,8 +30,35 @@ typedef struct {
     bool     active;
 } calendar_event_t;
 
-/** Load events from NVS into RAM. Call once after nvs_flash_init(). */
+typedef struct {
+    uint8_t  hour;    /*!< 0-23 */
+    uint8_t  minute;  /*!< 0-59 */
+    bool     enabled;
+} alarm_config_t;
+
+/** Load events and daily alarm from NVS into RAM. Call once after nvs_flash_init(). */
 esp_err_t event_manager_init(void);
+
+/** Read the current daily alarm configuration. */
+void event_manager_get_alarm(alarm_config_t *out);
+
+/** Update and persist the daily alarm configuration to NVS. */
+esp_err_t event_manager_set_alarm(const alarm_config_t *cfg);
+
+/**
+ * Check if the daily alarm (or active snooze) is due at `now`.
+ * Returns true once for the matching minute.
+ */
+bool event_manager_poll_alarm(const struct tm *now);
+
+/** Snooze the daily alarm for `minutes` (1..60) from `now`. */
+void event_manager_snooze_alarm(const struct tm *now, int minutes);
+
+/** Cancel any pending snooze timer. */
+void event_manager_clear_snooze(void);
+
+/** True if a snooze countdown is currently active. */
+bool event_manager_is_snoozed(void);
 
 /** Number of stored (active) events. */
 int event_manager_count(void);
@@ -41,6 +68,9 @@ const calendar_event_t *event_manager_get(int index);
 
 /** Add (or update nothing) an event. Validates the date/time and stores it. */
 esp_err_t event_manager_add(const calendar_event_t *ev);
+
+/** Add an event only if an identical date+time+title entry does not already exist. */
+esp_err_t event_manager_upsert(const calendar_event_t *ev);
 
 /** Remove event `index` (compacts the list). */
 esp_err_t event_manager_remove(int index);

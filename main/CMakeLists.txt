@@ -5,8 +5,10 @@ idf_component_register(
         clock_ui
         ssd1306
         event_manager
+        gcal_sync
         web_server
         notifier
+        buzzer
         esp_timer
         esp_driver_gpio
         esp_driver_i2c

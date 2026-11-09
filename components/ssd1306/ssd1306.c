@@ -87,6 +87,11 @@ static const uint8_t font8x8_basic[128][8] = {
     ['X'] = {0x63, 0x14, 0x08, 0x14, 0x63, 0x00, 0x00, 0x00},
     ['Y'] = {0x07, 0x08, 0x70, 0x08, 0x07, 0x00, 0x00, 0x00},
     ['Z'] = {0x61, 0x51, 0x49, 0x45, 0x43, 0x00, 0x00, 0x00},
+    ['['] = {0x00, 0x7f, 0x41, 0x41, 0x00, 0x00, 0x00, 0x00},
+    ['\\'] = {0x02, 0x04, 0x08, 0x10, 0x20, 0x00, 0x00, 0x00},
+    [']'] = {0x00, 0x41, 0x41, 0x7f, 0x00, 0x00, 0x00, 0x00},
+    ['^'] = {0x04, 0x02, 0x01, 0x02, 0x04, 0x00, 0x00, 0x00},
+    ['_'] = {0x40, 0x40, 0x40, 0x40, 0x40, 0x00, 0x00, 0x00},
 };
 
 /* ---- Low level I2C helpers ------------------------------------------- */
@@ -210,14 +215,12 @@ esp_err_t ssd1306_update(ssd1306_t *dev)
         if (err == ESP_OK) {
             err = ssd1306_write_data(dev, &dev->buffer[page * SSD1306_WIDTH], SSD1306_WIDTH);
         }
-        if (err != ESP_OK && first_err == ESP_OK) {
+        if (err != ESP_OK) {
             first_err = err;
+            break;
         }
     }
 
-    if (first_err != ESP_OK) {
-        ESP_LOGW(TAG, "framebuffer update failed: %s", esp_err_to_name(first_err));
-    }
     return first_err;
 }
 
@@ -331,10 +334,30 @@ void ssd1306_fill_circle(ssd1306_t *dev, int x0, int y0, int r, bool color)
     }
 }
 
+void ssd1306_draw_bitmap(ssd1306_t *dev, int x, int y, int w, int h,
+                         const uint8_t *bitmap, bool color)
+{
+    if (dev == NULL || bitmap == NULL || w <= 0 || h <= 0) {
+        return;
+    }
+    int stride = (w + 7) / 8;
+    for (int row = 0; row < h; row++) {
+        const uint8_t *row_ptr = bitmap + row * stride;
+        for (int col = 0; col < w; col++) {
+            if ((row_ptr[col / 8] >> (7 - (col % 8))) & 0x01) {
+                ssd1306_draw_pixel(dev, x + col, y + row, color);
+            }
+        }
+    }
+}
+
 /* ---- Text ------------------------------------------------------------- */
 
 void ssd1306_draw_char_size(ssd1306_t *dev, int x, int y, char c, int scale, bool invert)
 {
+    if (c >= 'a' && c <= 'z') {
+        c = (char)(c - 'a' + 'A');
+    }
     if ((uint8_t)c > 127) return;
     if (scale < 1) scale = 1;
 

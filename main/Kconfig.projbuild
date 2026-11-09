@@ -63,7 +63,7 @@ menu "OLED Clock configuration"
         config OLED_CLOCK_BTN_UP
             int "UP button GPIO"
             range 0 39
-            default 12
+            default 26
 
         config OLED_CLOCK_BTN_DOWN
             int "DOWN button GPIO"
@@ -79,6 +79,22 @@ menu "OLED Clock configuration"
             int "Button debounce time (ms)"
             range 10 500
             default 50
+    endmenu
+
+    menu "Buzzer / Alarm"
+        config OLED_CLOCK_BUZZER_PIN
+            int "Buzzer GPIO (-1 to disable)"
+            range -1 39
+            default 25
+            help
+                GPIO connected to the buzzer module (passive or active).
+                Uses LEDC PWM to play melodies and tactile button clicks.
+
+        config OLED_CLOCK_BUZZER_ACTIVE_LOW
+            bool "Buzzer module is active-low"
+            default n
+            help
+                Enable if your 3-pin buzzer module triggers on LOW instead of HIGH.
     endmenu
 
     config OLED_CLOCK_BRIGHTNESS
@@ -114,6 +130,16 @@ menu "OLED Clock configuration"
             string "LINE Notify token"
             depends on OLED_CLOCK_LINE_ENABLE
             default ""
+    endmenu
+
+    menu "Google Calendar Auto-Sync (optional)"
+        config OLED_CLOCK_GCAL_URL
+            string "Google Apps Script Web App URL"
+            default "https://script.google.com/macros/s/AKfycbyeW6dGVLh1M0cM-BAhQZGBNPZD8giip6qWJs_HUUzoT9wB0W0ouJUt2bdIUA-Klana/exec"
+            help
+                Optional default Google Apps Script Web App URL (/exec) that
+                returns upcoming calendar events. Can also be configured at
+                runtime from the device's Web UI (http://<device-ip>/).
     endmenu
 
 endmenu

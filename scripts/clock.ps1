@@ -48,8 +48,8 @@ switch ($Action) {
 
         Write-Host "Flashing $root\build to $Port from the host..." -ForegroundColor Cyan
         python -m esptool --chip esp32 -p $Port -b 460800 `
-            --before default_reset --after hard_reset `
-            write_flash --flash_mode dio --flash_freq 40m --flash_size detect `
+            --before default-reset --after hard-reset `
+            write-flash --flash-mode dio --flash-freq 40m --flash-size detect `
             0x1000  (Join-Path $root 'build/bootloader/bootloader.bin') `
             0x8000  (Join-Path $root 'build/partition_table/partition-table.bin') `
             0x10000 (Join-Path $root 'build/oled_clock_project.bin')

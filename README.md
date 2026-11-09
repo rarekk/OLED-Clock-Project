@@ -77,10 +77,11 @@ The firmware is built with the [ESP-IDF](https://docs.espressif.com/projects/esp
 | OLED SCL          | GPIO 22    | I2C clock                   |
 | OLED VCC          | 3V3        | Do **not** use 5V            |
 | OLED GND          | GND        |                             |
-| Button `MODE`     | GPIO 13    | Cycle screens               |
-| Button `UP`       | GPIO 12    | Brightness / mascot next    |
-| Button `DOWN`     | GPIO 14    | Brightness / mascot prev / reset |
-| Button `SELECT`   | GPIO 27    | Start / stop stopwatch      |
+| Buzzer `I/O`      | GPIO 25    | Passive/Active buzzer (PWM) |
+| Button `MODE` (K1 - Green)  | GPIO 13 | Cycle screens / Dismiss alarm |
+| Button `UP` (K2 - Blue)     | GPIO 26 | Brightness + / +Value / Lap / Snooze |
+| Button `DOWN` (K3 - Yellow) | GPIO 14 | Brightness - / -Value / Reset / Snooze |
+| Button `SELECT` (K4 - Red)  | GPIO 27 | Digital/Analog toggle / Edit alarm / Start-Stop |
 
 All button pins are pulled up internally, so the buttons just connect the pin
 to GND when pressed. Every GPIO can be changed in `menuconfig`.
@@ -207,19 +208,23 @@ python -m esptool --chip esp32 -b 460800 --before default_reset --after hard_res
 
 </details>
 
-## Controls
+## Controls (4-Button Module: K1 Green, K2 Blue, K3 Yellow, K4 Red)
 
-| Screen            | Button | Action                          |
-| ----------------- | ------ | ------------------------------- |
-| Any               | MODE   | Next screen                     |
-| Clock             | UP     | Brightness +                    |
-| Clock             | DOWN   | Brightness −                    |
-| Stopwatch         | SELECT | Start / stop                    |
-| Stopwatch         | DOWN   | Reset to 00:00                  |
-| Calendar          | —      | Shows the current month; today is highlighted |
-| Reminder popup    | MODE   | Dismiss the popup early (it also auto-hides)   |
-| Select mascot     | UP     | Next mascot                     |
-| Select mascot     | DOWN   | Previous mascot                 |
+| Screen            | Button           | Action                                             |
+| ----------------- | ---------------- | -------------------------------------------------- |
+| Any               | `MODE` (K1)      | Next screen (`CLOCK -> ALARM -> STOPWATCH -> CALENDAR -> MASCOT`) |
+| Clock             | `SELECT` (K4)    | Toggle **Digital Clock** <-> **Analog Watch Face** |
+| Clock             | `UP` / `DOWN`    | Brightness + / −                                   |
+| Daily Alarm       | `SELECT` (K4)    | Cycle edit field (`VIEW -> HOUR -> MIN -> ON/OFF`) |
+| Daily Alarm       | `UP` / `DOWN`    | Adjust value (or quick toggle ON/OFF in VIEW mode) |
+| Stopwatch         | `SELECT` (K4)    | Start / Stop                                       |
+| Stopwatch         | `UP` (K2)        | Record **Lap / Split** time while running          |
+| Stopwatch         | `DOWN` (K3)      | Reset to `00:00.00`                                |
+| Calendar          | `UP` / `DOWN`    | Next month / Previous month                        |
+| Calendar          | `SELECT` (K4)    | Toggle **Month Grid** <-> **Events List**          |
+| Alarm / Reminder  | `MODE` / `SELECT`| Stop & dismiss ringing alarm                       |
+| Alarm / Reminder  | `UP` / `DOWN`    | **Snooze for 5 minutes**                           |
+| Select mascot     | `UP` / `DOWN`    | Next / Previous pixel-art mascot (`NEKO`, `BMO`, `BOO`, `USAGI`) |
 
 Brighter/darker settings and the chosen mascot are saved to NVS automatically.
 
