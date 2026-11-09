@@ -1,402 +1,179 @@
-# OLED Clock (ESP32)
+# ⏰ ESP32 Pokémon Center Smart OLED Clock
 
-A small but polished ESP32 desk clock with a 128x64 I2C OLED display. It syncs
-time over Wi-Fi with SNTP, shows an animated mascot, has a stopwatch, and lets
-you pick between three procedurally drawn mascots — all remembered across
-reboots.
-
-The firmware is built with the [ESP-IDF](https://docs.espressif.com/projects/esp-idf/)
-(v5.x) and can be built entirely inside Docker, so you don't need a local toolchain.
+> **เอกสารรายงานโครงงานไมโครคอนโทรลเลอร์ (Microcontroller Project)**  
+> **ผู้จัดทำ:** นาย วรปรัชญ์ บุญมี  
+> **รหัสนักศึกษา:** 68030255  
 
 ---
 
-## Features
+## 📌 1. ที่มาและภาพรวมของโปรเจกต์ (Overview)
 
-- **Wi-Fi (STA)** with exponential-backoff reconnect and offline fallback.
-- **SNTP time sync** with a configurable POSIX timezone; shows `--:--` until
-  the clock is actually valid instead of lying with 1970.
-- **Big, readable clock** with date + weekday, seconds and a live status line.
-- **Stopwatch** measured with `esp_timer`, so it stays accurate under load
-  (start/stop and reset).
-- **Month calendar** with a 7-column grid, leap-year-aware date math and today
-  highlighted in inverse video, shown next to the mascot.
-- **Event reminders**: keep up to 10 events in NVS, see a dot marker under days
-  that have one, and get an on-screen popup at the exact minute it is due.
-- **Phone web UI** (over Wi-Fi) to add and delete events — no app required.
-- **Optional push notifications** to Telegram and/or LINE Notify when an event
-  fires (compiled in only if you enable it in `menuconfig`).
-- **Three mascots** (cat, robot, ghost) drawn from primitives with a blinking
-  animation — no giant bitmap arrays to maintain.
-- **Settings persisted in NVS**: the selected mascot and the brightness survive
-  power cycles.
-- **Brightness control** with the UP/DOWN buttons on the clock screen.
-- **Configurable everything** via `menuconfig`: pins, I2C address/speed,
-  timezone, SNTP server, debounce time. Wi-Fi credentials are never committed.
-- **SSD1306 and SH1106** support (SH1106 is common on 1.3" modules and needs a
-  132-column offset handled transparently).
+โปรเจกต์นี้เป็นการพัฒนา **นาฬิกาตั้งโต๊ะอัจฉริยะ (Smart Desk Clock)** ด้วยไมโครคอนโทรลเลอร์ **ESP32** ร่วมกับจอแสดงผล **OLED 0.96" (SSD1306)**, ลำโพง **Passive Buzzer**, และโมดูลปุ่มกด 4 ปุ่ม โดยควบคุมและเชื่อมต่อข้อมูลผ่านระบบเครือข่าย Wi-Fi
 
-## Screens
+จุดเด่นหลักของโปรเจกต์นี้คือการออกแบบในธีม **Pokémon Center (โปเกมอนเซ็นเตอร์)** ทั้งในส่วนของเสียงดนตรีประกอบ, เอฟเฟกต์เสียง Buzzer, อนิเมชันตัวละคร Pixel-Art และหน้าเว็บ Dashboard สไตล์โปเกบอลสีแดง-ขาว นอกจากนี้ยังมีฟังก์ชันดึงตารางนัดหมายจาก **Google Calendar อัตโนมัติ**, การซิงค์เวลามาตรฐานโลก (SNTP/NTP), หน้าปัดนาฬิกาทั้งแบบ Digital และ Analog, รวมถึงการแจ้งเตือนและการตั้งปลุกรายวัน
 
+---
+
+## 🎮 2. ฟังก์ชันการทำงานทั้งหมด (Project Features)
+
+### 2.1 หน้าจอแสดงผลและการทำงานบนบอร์ด (OLED UI Screens)
+กดปุ่ม **MODE (K1)** เพื่อสลับโหมดการทำงานทั้งหมด 6 หน้าจอ:
+
+1. **CLOCK (หน้าปัดนาฬิกาหลัก):**
+   - **Digital Clock:** แสดงเวลาตัวเลขขนาดใหญ่, วัน/เดือน/วันในสัปดาห์, วินาที, Progress bar เดินทีละวินาที, ไอคอนสถานะ Wi-Fi / กระดิ่งปลุก, และแอนิเมชันตัวละคร
+   - **Creative Analog Clock:** หน้าปัดนาฬิกาเข็มวงกลม มีเข็มสั้น (ชั่วโมง), เข็มยาว (นาที), เข็มวินาที และหน้าปัดย่อยแบบดิจิทัล (กดปุ่ม **SELECT (K4)** เพื่อสลับไป-มาระหว่างหน้าปัดดิจิทัลและแอนะล็อกได้ทันที)
+   - ปรับความสว่างหน้าจอได้จากปุ่ม **UP (K2)** และ **DOWN (K3)**
+   - หมุนเวียนแสดง IP Address ของบอร์ดที่มุมขอบล่าง เพื่อให้เปิดหน้าเว็บได้สะดวก
+
+2. **DAILY ALARM (ระบบนาฬิกาปลุกรายวัน):**
+   - ตั้งเวลาปลุก (ชั่วโมง : นาที) และเปิด/ปิด (ENABLED / MUTED) ผ่านปุ่มบนบอร์ด หรือผ่านหน้าเว็บ
+   - บรรเลงเพลง **Pokémon Center Theme** ผ่าน Buzzer เมื่อถึงเวลาปลุก
+   - หน้าต่างแจ้งเตือนเต็มจอพร้อมตัวการ์ตูนกระโดด:
+     - กดปุ่ม **MODE (K1)** หรือ **SELECT (K4)**: ปิดเสียงปลุก (Dismiss)
+     - กดปุ่ม **UP (K2)** หรือ **DOWN (K3)**: เลื่อนปลุก 5 นาที (Snooze 5 Mins)
+
+3. **STOPWATCH (นาฬิกาจับเวลา):**
+   - จับเวลาความละเอียดระดับมิลลิวินาที โดยวัดจากฮาร์ดแวร์ไทเมอร์ `esp_timer` โดยตรง ไม่มีความคลาดเคลื่อนสะสม
+   - **Start / Stop:** กดปุ่ม **SELECT (K4)**
+   - **บันทึกรอบ (Lap Split):** กดปุ่ม **UP (K2)** ขณะจับเวลา
+   - **Reset:** กดปุ่ม **DOWN (K3)**
+
+4. **CALENDAR & EVENTS LIST (ปฏิทินและรายการกิจกรรม):**
+   - แสดงตารางปฏิทินแบบ 7 คอลัมน์ ไฮไลต์วันที่ปัจจุบันอัตโนมัติ
+   - วันที่มีนัดหมายจะมีสัญลักษณ์จุดเล็กๆ (Event Dot) อยู่ใต้วันที่
+   - เลื่อนดูเดือนก่อนหน้า / ถัดไปได้ด้วยปุ่ม **UP / DOWN**
+   - กดปุ่ม **SELECT (K4)** เพื่อสลับเข้าสู่หน้า **EVENTS LIST** ดูรายการนัดหมาย 3 รายการล่าสุดบนจอได้ทันที
+
+5. **MASCOT SELECT (เลือกตัวการ์ตูน Pixel-Art):**
+   - มีมาสคอตพิกเซลอาร์ต 24x24 พิกเซลให้เลือก 4 ตัว:
+     - 🐱 **NEKO** (แมวขยับหูและกระพริบตา)
+     - 🤖 **BMO** (หุ่นยนต์จิ๋วจาก Adventure Time)
+     - 👻 **BOO** (ผีแลบลิ้นจาก Mario)
+     - 🐰 **USAGI** (กระต่ายหูยาว)
+   - มาสคอตที่เลือกจะถูกบันทึกลงหน่วยความจำ NVS ไม่หายแม้ตัดไฟเลี้ยง
+
+6. **SET TIME/DATE (ตั้งวันและเวลาด้วยตนเอง):**
+   - สำหรับกรณีที่ไม่ได้ต่อ Wi-Fi หรือต้องการตั้งเวลาแบบ Manual
+   - กด **SELECT (K4)** เพื่อเลื่อนแก้ทีละหลัก: `ชั่วโมง` -> `นาที` -> `วินาที` -> `วัน` -> `เดือน` -> `ปี`
+   - ปรับค่าด้วยปุ่ม **UP / DOWN**
+   - กดปุ่ม **DOWN (K3)** ในขณะไม่ได้แก้ตัวเลข เพื่อเรียกคำสั่งดึงเวลาจาก **NTP Server (`[DN]NTP`)** กลับมาทันที
+
+---
+
+### 2.2 Pokémon Center Web Dashboard (ควบคุมผ่านเว็บเบราว์เซอร์)
+เปิดผ่านบราวเซอร์มือถือหรือคอมพิวเตอร์ที่อยู่ในวง Wi-Fi เดียวกันที่ URL: `http://<IP-Address>/` (ดูเลข IP ได้จากจอ OLED)
+
+- **🎨 ธีมโปเกมอนเซ็นเตอร์:** โทนสีแดง-ขาว หัวเว็บเป็นแถบสีแดงพร้อมปุ่ม PokéBall กึ่งกลาง
+- **🎵 Sound Center:**
+  - `Play Web BGM`: เล่นเพลงประกอบ Pokémon Center BGM บนเว็บเบราว์เซอร์ผ่าน Web Audio API
+  - `Heal Jingle (ESP32)`: สั่งให้ลำโพง Buzzer บนบอร์ดส่งเสียงทำนองฟื้นฟูพลัง 5 โน้ตอันเป็นเอกลักษณ์
+  - `Test Alarm Melody`: ทดสอบเปิดเสียงเพลงปลุกเต็มเพลงบนบอร์ด
+- **🕘 Set Date & Time:**
+  - ปุ่ม `📱 Sync Phone/PC`: กดปุ่มเดียว ดึงเวลาและวันที่ปัจจุบันของมือถือหรือคอมพิวเตอร์ส่งเข้า ESP32 ทันที
+  - ปุ่ม `🌐 Sync NTP`: สั่งให้ ESP32 ซิงค์เวลาโลกผ่านอินเทอร์เน็ตใหม่
+- **⏰ Daily Alarm Form:** ตั้งเวลาปลุกและเลือกเปิด/ปิดเสียงปลุกผ่านหน้าเว็บ
+- **☁️ Google Calendar Auto-Sync:**
+  - ช่องใส่ URL ของ Google Apps Script Web App
+  - ปุ่มกด `Save & Sync Now` ดึงตารางกิจกรรมจาก Google Calendar ลงบอร์ดทันที
+- **📅 PokèCenter Appointments:** ฟอร์มเพิ่ม/ลบรายการนัดหมาย พร้อมตารางแสดงรายการกิจกรรมทั้งหมด
+
+---
+
+### 2.3 ระบบซิงค์ปฏิทิน Google Calendar อัตโนมัติ (Google Calendar Auto-Sync)
+- เขียน Google Apps Script ให้ดึงข้อมูล Event จาก Google Calendar แปลงเป็น JSON รูปแบบย่อ
+- บอร์ด ESP32 ใช้ไลบรารี `esp_http_client` ยิงดึงข้อมูลผ่าน HTTPS
+- มีระบบรองรับ **HTTP 302 Redirect** ของ Google และการถอดรหัสแบบ **Chunked Transfer Encoding**
+- มีระบบตั้งเวลาซิงค์อัตโนมัติเป็นระยะ (Periodic Sync) เมื่อต่อ Wi-Fi
+
+---
+
+## 🔌 3. วงจรและการต่อขาฮาร์ดแวร์ (Pinout & Wiring)
+
+| อุปกรณ์ | ขาของอุปกรณ์ | ขา ESP32 | คำอธิบาย |
+| :--- | :--- | :--- | :--- |
+| **OLED SSD1306** | VCC | **3V3** | ไฟเลี้ยงจอ 3.3V (ห้ามต่อ 5V) |
+| | GND | **GND** | กราวด์ร่วม |
+| | SDA | **GPIO 21** | I2C Data |
+| | SCL | **GPIO 22** | I2C Clock |
+| **Passive Buzzer** | VCC (+) | **3V3** | ไฟเลี้ยงโมดูล |
+| | GND (-) | **GND** | กราวด์ร่วม |
+| | I/O (S) | **GPIO 25** | ขับสัญญาณเสียงด้วย LEDC PWM |
+| **โมดูลปุ่มกด 4 ปุ่ม** | GND | **GND** | กราวด์ร่วม (Active Low, Pull-up ภายใน) |
+| | K1 (เขียว) | **GPIO 13** | **MODE** - สลับหน้าจอ / ปิดเสียงปลุก |
+| | K2 (น้ำเงิน) | **GPIO 26** | **UP** - เพิ่มค่า / ความสว่าง / Lap / เลื่อนปลุก |
+| | K3 (เหลือง) | **GPIO 14** | **DOWN** - ลดค่า / Reset เวลา / ซิงค์ NTP |
+| | K4 (แดง) | **GPIO 27** | **SELECT** - ตกลง / สลับหน้าปัด / เริ่ม-หยุด |
+
+> ⚠️ **ข้อควรระวังสำคัญ:** ห้ามต่อปุ่มเข้ากับขา **GPIO 12 (MTDI)** โดยเด็ดขาด เพราะเป็น Strapping Pin กำหนดแรงดัน Flash (ดูรายละเอียดในหัวข้อปัญหาที่พบ)
+
+---
+
+## 🛠️ 4. ปัญหาที่พบในการพัฒนาและการแก้ไข (Problems & Solutions)
+
+ระหว่างการพัฒนาโปรเจกต์นี้ มีปัญหาทางเทคนิคสำคัญหลายจุดที่เกิดขึ้นและแก้ไขสำเร็จ ดังนี้:
+
+### 1) ปัญหาบอร์ด Boot Loop และเกิด Flash MD5 Error (`boot:0x33`)
+* **อาการ:** หลังจากต่อโมดูลปุ่มกดและอัปโหลดโปรแกรม บอร์ดวนรีเซ็ตตัวเองรัวๆ พ่น Error `Wrong boot mode detected (0x33)` และ `MD5 of file does not match data in flash`
+* **สาเหตุ:** เดิมกำหนดให้ปุ่ม UP ต่ออยู่ที่ขา `GPIO 12` แต่ขา GPIO 12 ของ ESP32 เป็น **Strapping Pin (MTDI)** ทำหน้าที่กำหนดแรงดันไฟฟ้าของชิป Flash ภายนอก หากตอนเปิดเครื่องขานี้ถูก Pull-up ให้มีสถานะ HIGH ระบบจะเข้าใจว่าต้องจ่ายไฟ Flash ที่ 1.8V (จากปกติ 3.3V) ส่งผลให้ชิป Flash ทำงานล้มเหลวและอ่านเฟิร์มแวร์ไม่ได้
+* **วิธีแก้:** ย้ายการเชื่อมต่อปุ่ม UP จากขา `GPIO 12` ไปยังขา **`GPIO 26`** แทน ทำให้บอร์ดสามารถบูตเข้าโหมดปกติ (`boot:0x13`) ได้อย่างเสถียร 100%
+
+### 2) ปัญหาขนาดเฟิร์มแวร์เกินขนาด Partition (Binary Size Overflow)
+* **อาการ:** เมื่อเพิ่มคอมโพเนนต์ Google Calendar Sync ซึ่งต้องใช้ mbedTLS ในการติดต่อ HTTPS ร่วมกับ Web Server ทำให้ขนาดเฟิร์มแวร์โตเกินขนาด Partition มาตรฐาน 1MB (0x100000 bytes) จนคอมไพล์ไม่ผ่าน
+* **วิธีแก้:** แก้ไขไฟล์ `sdkconfig` โดยเปิดใช้งาน Compiler Size Optimization:
+  ```ini
+  CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+  ```
+  การคอมไพล์ด้วย Flag `-Os` ช่วยลดขนาดไฟล์ไบนารีลงได้ถึง ~86 KB (ลดเหลือ 0xECE80 bytes) ทำให้มีพื้นที่ว่างเหลือใน Partition ราวๆ 7-8% โดยไม่ต้องเปลี่ยน Partition Table
+
+### 3) ปัญหาการรองรับ HTTP 302 Redirect ของ Google Apps Script
+* **อาการ:** การร้องขอ Event ไปยัง Web App URL ของ Google ไม่ได้รับเนื้อหา JSON ทันที แต่ Google จะส่งสถานะ HTTP 302 Redirect ไปยังเซิร์ฟเวอร์ย่อยของ Googleapis
+* **วิธีแก้:** คอนฟิก `esp_http_client` ในคอมโพเนนต์ `gcal_sync` ให้เปิดแฟลก `follow_redirects = true` พร้อมทั้งเขียนระบบ Buffer รองรับ Chunked Transfer Encoding เพื่อให้ดึงข้อมูลปฏิทินได้อย่างสมบูรณ์
+
+### 4) ปัญหาสาย I2C หลวมแล้วบอร์ดหยุดทำงาน (Kernel Panic)
+* **อาการ:** ในช่วงทดลองต่อสายไฟบน Breadboard หากสายจอ OLED หลุดหรือขยับ ฟังก์ชัน `ssd1306_init()` จะคืนค่า Error ส่งผลให้คำสั่ง `ESP_ERROR_CHECK()` สั่งบอร์ดทำ Kernel Panic และรีบูตทันที
+* **วิธีแก้:** เปลี่ยนการเช็คผลการเริ่มต้นจอ OLED ให้เป็นแบบ Non-fatal warning ใน `main.c` ทำให้กรณีที่สายจอหลุด ระบบเบื้องหลัง (Web Server, Buzzer, Wi-Fi, Google Sync) จะยังทำงานต่อไปได้โดยไม่หยุดชะงัก
+
+### 5) ข้อจำกัดเรื่องฟอนต์ภาษาไทยบนจอ OLED
+* **อาการ:** จอ OLED ขนาด 128x64 ใช้ Bitmap Font แบบ ASCII 8x8 ทำให้ไม่สามารถแสดงผลฟอนต์ภาษาไทยของชื่อนัดหมายบนจอได้โดยตรง
+* **วิธีแก้:** ออกแบบให้ระบบแปลงตัวอักษรภาษาอังกฤษพิมพ์เล็กเป็นพิมพ์ใหญ่อัตโนมัติ (`to_upper_ascii`) สำหรับแสดงผลบนจอ OLED ส่วนชื่อกิจกรรมภาษาไทยจะยังคงถูกบันทึกและแสดงผลภาษาไทยอย่างสมบูรณ์แบบบนหน้า Web Dashboard
+
+---
+
+## 🏗️ 5. โครงสร้างซอร์สโค้ดของโปรเจกต์ (Project Structure)
+
+```text
+oled_clock_project/
+├── main/
+│   ├── main.c                 # ฟังก์ชันหลัก ควบคุม State Machine, ปุ่มกด และการรวมระบบ
+│   ├── CMakeLists.txt
+│   └── Kconfig.projbuild      # คอนฟิกขา GPIO, Wi-Fi, NTP และ Buzzer
+├── components/
+│   ├── buzzer/                # โมดูลเสียง LEDC PWM (Pokémon Theme & Healing Jingle)
+│   ├── clock_ui/              # หน้าจอ UI, เข็มนาฬิกา Analog, ปฏิทิน, และ Pixel-Art Mascots
+│   ├── event_manager/         # จัดการรายการนัดหมาย และการบันทึก Alarm ลง NVS
+│   ├── gcal_sync/             # ซิงค์ข้อมูลกับ Google Calendar ผ่าน HTTPS
+│   ├── ssd1306/               # ไดรเวอร์จอ OLED SSD1306/SH1106 ผ่าน I2C
+│   └── web_server/            # Pokémon Center Web Dashboard และ API Handlers
+├── docker/                    # สภาพแวดล้อม Build ผ่าน Docker (ESP-IDF v5.3)
+├── scripts/
+│   └── clock.ps1              # สคริปต์ PowerShell สำหรับ Build และ Flash
+├── dashboard.html             # ไฟล์หน้าเว็บจำลองสำหรับทดสอบบนคอมพิวเตอร์
+└── README.md                  # เอกสารรายงานฉบับนี้
 ```
-   CLOCK                     STOPWATCH                 SELECT MASCOT
-+----------------------+   +----------------------+   +----------------------+
-| MON 12/10   +----+   |   |       STOPWATCH      |   |    SELECT MASCOT     |
-|             | /\ |   |   |                      |   |  +--+   +--+  +--+  |
-| 12:34       |(oo)|   |   |      12:34           |   |  |  |   |[]|  |~~|  |
-|             | \/ |   |   |                      |   |  |  |   |  |  |  |  |
-| :45         +----+   |   |      .45  RUN        |   |  +--+   +--+  +--+  |
-| NTP OK               |   | [OK]S/S [DN]RST      |   |      CAT  1/3        |
-+----------------------+   +----------------------+   +----------------------+
 
-   CALENDAR                                    EVENT POPUP
-+----------------------+                   +----------------------+
-|      OCT 2026        |                   |  ! REMINDER !        |
-|  S  M  T  W  T  F  S |                   |----------------------|
-|              1  2  3 |    1. month/year  |                      |
-|  4  5  6  7  8  9 10 |    2. weekday    |   DENTIST            |
-| 11 [12] 13 14 15 16 17|    3. day grid   |                      |
-| 18 19 20 21 22 23 24 |    4. today box  |        MODE = OK     |
-| 25 26 27 28 29 30 31 |    5. mascot     +----------------------+
-+----------------------+
-   ^ dot under a day = that day has an event
-```
+---
 
-## Hardware
+## 🚀 6. วิธีการ Build และ Flash เฟิร์มแวร์
 
-| Part                     | Notes                                            |
-| ------------------------ | ------------------------------------------------ |
-| ESP32 devkit (ESP32-WROOM)| Any ESP32 board works.                          |
-| 0.96" SSD1306 **or** 1.3" SH1106 OLED | 128x64, I2C, usually address `0x3C`. |
-| 4x push buttons          | Active-low, one side to GPIO, other side to GND. |
-
-### Default wiring
-
-| Signal            | ESP32 GPIO | Notes                       |
-| ----------------- | ---------- | --------------------------- |
-| OLED SDA          | GPIO 21    | I2C data                    |
-| OLED SCL          | GPIO 22    | I2C clock                   |
-| OLED VCC          | 3V3        | Do **not** use 5V            |
-| OLED GND          | GND        |                             |
-| Buzzer `I/O`      | GPIO 25    | Passive/Active buzzer (PWM) |
-| Button `MODE` (K1 - Green)  | GPIO 13 | Cycle screens / Dismiss alarm |
-| Button `UP` (K2 - Blue)     | GPIO 26 | Brightness + / +Value / Lap / Snooze |
-| Button `DOWN` (K3 - Yellow) | GPIO 14 | Brightness - / -Value / Reset / Snooze |
-| Button `SELECT` (K4 - Red)  | GPIO 27 | Digital/Analog toggle / Edit alarm / Start-Stop |
-
-All button pins are pulled up internally, so the buttons just connect the pin
-to GND when pressed. Every GPIO can be changed in `menuconfig`.
-
-## Software requirements
-
-- **Docker** (recommended for building) — Docker Desktop on Windows/macOS or
-  Docker Engine on Linux.
-- **Only for flashing on Windows:** Python 3 with `esptool`
-  (`pip install esptool`) or a native ESP-IDF install.
-- Optional: a native [ESP-IDF v5.x](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/)
-  installation if you prefer not to use Docker.
-
-## Getting started
-
-### 1. Configure Wi-Fi and the timezone
-
-Wi-Fi credentials are **not** stored in the repository. Put them in your local
-`sdkconfig` via menuconfig:
-
+### การ Build ผ่าน Docker:
 ```bash
-# Linux/macOS
-make menuconfig
-
-# Windows (PowerShell)
-pwsh scripts/clock.ps1 menuconfig
-```
-
-Then go to **OLED Clock configuration → Wi-Fi credentials** and set
-**Wi-Fi SSID** / **Wi-Fi password**. Optionally tweak the timezone under
-**Time (SNTP)** (default `ICT-7`, i.e. UTC+7).
-
-> **Important — `sdkconfig.defaults` is only a template.** It is read **only
-> when `sdkconfig` does not exist**. Once `sdkconfig` has been generated, editing
-> `sdkconfig.defaults` has no effect. So either:
-> - use `menuconfig` (recommended) — it edits the real `sdkconfig`, or
-> - edit `sdkconfig` directly (`CONFIG_OLED_CLOCK_WIFI_SSID="MyNetwork"`), or
-> - delete `sdkconfig` and rebuild so `sdkconfig.defaults` is re-applied.
->
-> If the firmware was built with an empty SSID it will print
-> *"No Wi-Fi SSID configured - running offline"* on the serial log and show
-> `NO WIFI` on the screen — that means the credential never reached the build.
-
-> **ESP32 is 2.4 GHz only.** A 5 GHz-only network will never connect. For a
-> phone hotspot, enable **"Maximize Compatibility"** (iPhone) or set the AP band
-> to **2.4 GHz** (Android). The serial log now reports the disconnect reason
-> code if association fails.
-
-> **1.3" OLED users:** also select **Component config → SSD1306 / SH1106 OLED
-> driver → OLED panel controller → SH1106**. Or set `CONFIG_SSD1306_PANEL_SH1106=y`
-> in `sdkconfig.defaults` / `sdkconfig`.
-
-### 2. Build
-
-```bash
-# Linux / macOS (Make)
-make build
-
-# Windows (PowerShell)
-pwsh scripts/clock.ps1 build
-
-# Or directly with Docker Compose
 docker compose -f docker/docker-compose.yml run --rm idf idf.py build
 ```
 
-The first build downloads the ESP-IDF image (a few hundred MB) — later builds
-are fast thanks to the mounted `ccache` volume.
-
-### 3. Flash
-
-**Linux / macOS:**
-
-```bash
-make flash PORT=/dev/ttyUSB0 MONITOR=1
-# or: SERIAL_PORT=/dev/ttyUSB0 make flash-monitor
-```
-
-**Windows:** Docker Desktop cannot forward a COM port into a container, so
-build in Docker and flash from the host:
-
+### การ Flash ลงบอร์ด ESP32 ผ่านสาย USB (Windows PowerShell):
 ```powershell
-pwsh scripts/clock.ps1 flash -Port COM5
-pwsh scripts/clock.ps1 monitor -Port COM5
+python -m esptool --chip esp32 -p COM3 -b 460800 write_flash 0x1000 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0x10000 build/oled_clock_project.bin
 ```
 
-If you have a native ESP-IDF install, the simplest option is:
-
-```powershell
-idf.py -p COM5 flash monitor
-```
-
-#### Manual flash with `esptool` (no ESP-IDF install required)
-
-If you only have Python 3 with [`esptool`](https://github.com/espressif/esptool)
-(`pip install esptool`) and the firmware is already built, you can flash the
-three binaries directly. Run this from the project root:
-
-```powershell
-python -m esptool --chip esp32 -b 460800 --before default_reset --after hard_reset write_flash --flash_mode dio --flash_size 2MB --flash_freq 40m 0x1000 build/bootloader/bootloader.bin 0x8000 build/partition_table/partition-table.bin 0x10000 build/oled_clock_project.bin
-```
-
-- The paths are relative to `build/`, so run it from the project root.
-- Add `-p COM5` (Windows) or `-p /dev/ttyUSB0` (Linux/macOS) if esptool cannot
-  auto-detect the port.
-- `--flash_size 2MB` matches this board's configuration. Use `detect` (or the
-  value printed by your board) if yours has a different flash size.
-- To read the logs afterwards, open a terminal at 115200 baud, e.g.
-  `pwsh scripts/clock.ps1 monitor -Port COM5`.
-
-<details>
-<summary>Advanced: flashing from Docker on Windows via WSL2 + usbipd-win</summary>
-
-1. Install [usbipd-win](https://github.com/dorssel/usbipd-win) and share the
-   CP210x/CH340 USB serial adapter with WSL2:
-   ```powershell
-   usbipd list
-   usbipd bind --busid <BUSID>
-   usbipd attach --wsl --busid <BUSID>
-   ```
-2. Inside WSL the adapter appears as `/dev/ttyUSB0`. Run:
-   ```bash
-   SERIAL_PORT=/dev/ttyUSB0 make flash-monitor
-   ```
-
-</details>
-
-## Controls (4-Button Module: K1 Green, K2 Blue, K3 Yellow, K4 Red)
-
-| Screen            | Button           | Action                                             |
-| ----------------- | ---------------- | -------------------------------------------------- |
-| Any               | `MODE` (K1)      | Next screen (`CLOCK -> ALARM -> STOPWATCH -> CALENDAR -> MASCOT`) |
-| Clock             | `SELECT` (K4)    | Toggle **Digital Clock** <-> **Analog Watch Face** |
-| Clock             | `UP` / `DOWN`    | Brightness + / −                                   |
-| Daily Alarm       | `SELECT` (K4)    | Cycle edit field (`VIEW -> HOUR -> MIN -> ON/OFF`) |
-| Daily Alarm       | `UP` / `DOWN`    | Adjust value (or quick toggle ON/OFF in VIEW mode) |
-| Stopwatch         | `SELECT` (K4)    | Start / Stop                                       |
-| Stopwatch         | `UP` (K2)        | Record **Lap / Split** time while running          |
-| Stopwatch         | `DOWN` (K3)      | Reset to `00:00.00`                                |
-| Calendar          | `UP` / `DOWN`    | Next month / Previous month                        |
-| Calendar          | `SELECT` (K4)    | Toggle **Month Grid** <-> **Events List**          |
-| Alarm / Reminder  | `MODE` / `SELECT`| Stop & dismiss ringing alarm                       |
-| Alarm / Reminder  | `UP` / `DOWN`    | **Snooze for 5 minutes**                           |
-| Select mascot     | `UP` / `DOWN`    | Next / Previous pixel-art mascot (`NEKO`, `BMO`, `BOO`, `USAGI`) |
-
-Brighter/darker settings and the chosen mascot are saved to NVS automatically.
-
-## Event reminders
-
-Up to **10 events** can be stored. Each event has a date, a time (to the minute)
-and a short title (max 31 characters). They live in NVS, so they survive a
-reboot, and the on-device calendar shows a small **dot under every day that has
-an event**.
-
-When the RTC/NTP clock reaches an event's exact minute, the firmware:
-
-1. shows a full-screen **reminder popup** on the OLED for 10 seconds,
-2. jumps to the calendar screen so you see the day, and
-3. (optionally) pushes a notification — see below.
-
-The popup can be dismissed instantly with the **MODE** button.
-
-### Adding events from your phone
-
-The device runs a small web server on port 80. Once it is connected to Wi-Fi,
-find its IP address in the serial log or on your router, then open it in a
-phone browser:
-
-```
-http://<device-ip>/
-```
-
-You get a mobile-friendly form to pick a date and time, type a title and add the
-event. Existing events are listed with a **del** link (and there is a
-**Clear all** link).
-
-> **Note:** the OLED font is uppercase ASCII only, so non-Latin titles (e.g.
-> Thai) will not render on the screen — but they are stored and shown correctly
-> in the web UI.
-
-### Push notifications (Telegram / LINE)
-
-Push notifications are **off by default**. Enable them in `menuconfig`:
-
-```bash
-idf.py menuconfig
-# -> "OLED Clock" -> "Event notifications (optional)"
-```
-
-| Option                             | Description                              |
-| ---------------------------------- | ---------------------------------------- |
-| `OLED_CLOCK_TELEGRAM_ENABLE`       | Turn Telegram notifications on           |
-| `OLED_CLOCK_TELEGRAM_BOT_TOKEN`    | Token from [@BotFather](https://t.me/BotFather) |
-| `OLED_CLOCK_TELEGRAM_CHAT_ID`      | Your chat/user id (e.g. from `getUpdates`) |
-| `OLED_CLOCK_LINE_ENABLE`           | Turn LINE Notify on                      |
-| `OLED_CLOCK_LINE_TOKEN`            | LINE Notify personal access token        |
-
-Notifications use HTTPS (`esp_http_client` + the ESP-IDF certificate bundle), so
-the clock needs internet access, not just a local network. Sends are
-best-effort: a failed POST is logged and does not block the UI.
-
-> LINE Notify has been discontinued by LINE; **Telegram is recommended**.
-
-## Docker details
-
-| File                                 | Purpose                                              |
-| ------------------------------------ | ---------------------------------------------------- |
-| `docker/Dockerfile`                  | ESP-IDF image + ccache.                              |
-| `docker/docker-compose.yml`          | Build/dev service with the project mounted.          |
-| `docker/docker-compose.flash.yml`    | Adds `/dev/tty*` device passthrough for Linux/macOS. |
-| `Makefile`                           | Convenience targets (`build`, `flash`, `monitor`...).|
-| `scripts/clock.ps1`                  | Windows PowerShell wrapper.                          |
-
-Change the ESP-IDF version with the `IDF_VERSION` build arg (default
-`release-v5.3`), e.g.:
-
-```bash
-IDF_VERSION=release-v5.3 docker compose -f docker/docker-compose.yml build
-```
-
-> **Note:** the `build/` directory is tied to a specific ESP-IDF image. After
-> changing `IDF_VERSION` (or switching between a native install and Docker),
-> run `make fullclean` (or delete `build/`) before rebuilding, otherwise CMake
-> will try to reuse a toolchain path that no longer exists.
-
-## Project structure
-
-```
-oled_clock_project/
-├── CMakeLists.txt              # Top-level ESP-IDF project
-├── sdkconfig.defaults          # Reproducible defaults (no secrets)
-├── Makefile                    # Docker helpers
-├── docker/                     # Container build environment
-├── scripts/clock.ps1           # Windows helper
-├── main/
-│   ├── CMakeLists.txt
-│   ├── Kconfig.projbuild        # Wi-Fi, pins, timezone, brightness, notify...
-│   └── main.c                   # Wi-Fi, SNTP, buttons, events, app loop
-└── components/
-    ├── ssd1306/                 # OLED driver (SSD1306/SH1106, primitives)
-    │   ├── Kconfig              # Panel type, orientation, column offset
-    │   ├── CMakeLists.txt
-    │   ├── include/ssd1306.h
-    │   └── ssd1306.c
-    ├── clock_ui/                # Presentation layer
-    │   ├── CMakeLists.txt
-    │   ├── include/clock_ui.h
-    │   └── clock_ui.c           # Screens + procedural mascots
-    ├── event_manager/           # Event storage (RAM + NVS)
-    │   ├── CMakeLists.txt
-    │   ├── include/event_manager.h
-    │   └── event_manager.c
-    ├── web_server/              # Phone web UI for events
-    │   ├── CMakeLists.txt
-    │   ├── include/web_server.h
-    │   └── web_server.c
-    └── notifier/                # Optional Telegram / LINE push
-        ├── CMakeLists.txt
-        ├── include/notifier.h
-        └── notifier.c
-```
-
-### Architecture notes
-
-- `ssd1306` owns the framebuffer, the I2C transactions and drawing primitives
-  (pixels, lines, rects, circles, scaled text). Every write returns an
-  `esp_err_t`, so bus errors are visible instead of silent.
-- `clock_ui` is pure presentation: it takes a `ui_state_t` snapshot and draws
-  one screen. It knows nothing about Wi-Fi, NVS or the app loop.
-- `event_manager` owns the event list and its NVS persistence. It exposes a
-  `day_mask()` bitmap (bit `day-1`) that `main` feeds into `ui_state_t`, so the
-  UI layer still does not depend on the storage layer.
-- `web_server` depends only on `event_manager`; it is a thin form → `add` /
-  `remove` shim.
-- `notifier` is compiled empty unless a channel is enabled, and skips sending
-  when its token is blank.
-- `main` glues everything: it samples buttons, tracks time and stopwatch, polls
-  for due events, and calls `clock_ui_render()` ~10 times per second.
-
-## Configuration reference (`main/Kconfig.projbuild`)
-
-| Option                          | Default            | Description                          |
-| ------------------------------- | ------------------ | ------------------------------------ |
-| `OLED_CLOCK_WIFI_SSID`          | *(empty)*          | 2.4 GHz network name                 |
-| `OLED_CLOCK_WIFI_PASSWORD`      | *(empty)*          | WPA2 password                        |
-| `OLED_CLOCK_WIFI_MAX_RETRY`     | `0` (forever)      | Reconnect attempts before giving up  |
-| `OLED_CLOCK_SNTP_SERVER`        | `pool.ntp.org`     | NTP server                           |
-| `OLED_CLOCK_TIMEZONE`           | `ICT-7`            | POSIX TZ string                      |
-| `OLED_CLOCK_I2C_SDA` / `SCL`    | `21` / `22`        | I2C pins                             |
-| `OLED_CLOCK_I2C_SPEED`          | `400000`           | I2C clock in Hz                      |
-| `OLED_CLOCK_OLED_ADDR`          | `0x3C`             | OLED I2C address                     |
-| `OLED_CLOCK_BTN_*`              | `13/12/14/27`      | Button GPIOs                         |
-| `OLED_CLOCK_BTN_DEBOUNCE_MS`    | `50`               | Debounce time                        |
-| `OLED_CLOCK_BRIGHTNESS`         | `207`              | Default contrast (16-255)            |
-| `OLED_CLOCK_TELEGRAM_*`         | *off / empty*      | Telegram notifications (opt-in)      |
-| `OLED_CLOCK_LINE_*`             | *off / empty*      | LINE Notify notifications (opt-in)   |
-
-## Troubleshooting
-
-| Symptom                        | Fix                                                                 |
-| ------------------------------ | ------------------------------------------------------------------- |
-| Blank / garbled screen         | Check SDA/SCL wiring and address (`0x3C` vs `0x3D`).                 |
-| Image shifted right            | You have an SH1106 — enable `CONFIG_SSD1306_PANEL_SH1106`.           |
-| Nothing on bricked-looking I2C | Verify 3V3 power and pull-ups; the driver logs I2C errors to UART.   |
-| Clock shows `--:--`            | No Wi-Fi/SNTP yet. Check SSID/password and the `WI-FI...` status.    |
-| Screen shows `NO WIFI`         | Firmware compiled with an empty SSID — `sdkconfig.defaults` was ignored. Use `menuconfig`, or delete `sdkconfig` and rebuild. |
-| `WI-FI...` never becomes `NTP OK` | Credentials are set but association fails. ESP32 needs a **2.4 GHz** SSID; check the disconnect reason code in the serial log. |
-| Web UI not reachable           | The device must be on Wi-Fi with a valid IP. Find it in the log (`GOT IP`) and open `http://<ip>/` on the same network. |
-| Events missing after flash     | Events live in NVS. A full `esptool erase_flash` wipes them along with Wi-Fi settings. |
-| No Telegram/LINE message       | Enable the channel in `menuconfig` **and** set the token; the device needs internet (HTTPS) access. Check the log for `POST ok` / `POST failed`. |
-| Non-English title blank on OLED | The OLED font is uppercase ASCII only; non-Latin characters show as spaces on the screen (the web UI still shows them). |
-| Text is garbled/blank glyphs   | The built-in font is uppercase-only; keep UI strings uppercase.      |
-| `Failed to connect` on flash   | Wrong `PORT`/`COM`, or the board is held in reset.                   |
-| `cmake: not found` while building | Stale `build/` from a different ESP-IDF image/toolchain. Run `make fullclean` (or delete `build/`) and rebuild. |
-
-## License
-
-Released under the MIT License. Do whatever you like — attribution is
-appreciated.
+---
+*จัดทำขึ้นเพื่อใช้ประกอบการส่งงานวิชาไมโครคอนโทรลเลอร์*
